@@ -1,0 +1,149 @@
+import {
+  AppBar,
+  Box,
+  Button,
+  Grid,
+  TextField,
+  Toolbar,
+  Typography,
+} from "@mui/material";
+import { DataGrid, GridColDef, GridRowParams } from "@mui/x-data-grid";
+import CSVReader from "react-csv-reader";
+import { useState } from "react";
+import React from "react";
+import HMapPlatform from "./components/HMapPlatform";
+import HMap from "./components/Maps/HMap";
+import HMapMarker from "./components/Maps/HMapMarker";
+import HMapRoute from "./components/Maps/HMapRoute";
+
+interface IData {
+  id: string;
+  name: string;
+  address: string;
+  tw1s: string;
+  tw1e: string;
+  tw2s: string;
+  tw2e: string;
+  beforeId: string;
+}
+
+function App() {
+  const [data, setData] = useState<IData[]>();
+  const columns: GridColDef[] = [
+    { field: "id", headerName: "Id", width: 50 },
+    { field: "name", headerName: "Name", width: 200 },
+    { field: "address", headerName: "address", width: 400 },
+    { field: "loction", headerName: "loction", width: 200 },
+    { field: "tw1s", headerName: "timewindow1start", width: 150 },
+    { field: "tw1e", headerName: "timewindow1end", width: 150 },
+    { field: "tw2s", headerName: "timewindow2start", width: 150 },
+    { field: "tw2e", headerName: "timewindow2end", width: 150 },
+    { field: "beforeId", headerName: "beforeId", width: 150 },
+  ];
+  var dotIcon = new H.map.Icon(
+    '<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="12" fill="#9e9e9e" stroke="white" stroke-width="1" /></svg>',
+    {
+      anchor: { x: 8, y: 8 },
+    }
+  );
+  const [route, setRoute] = useState<boolean>(false);
+
+  const handleonFileLoaded = (data: Array<Array<string>>) => {
+    var result: IData[] = [];
+    for (let index = 1; index < data.length; index++) {
+      const row = data[index];
+      console.log("row:", row);
+
+      if (row.length === 8) {
+        result.push({
+          id: row[0],
+          name: row[1],
+          address: row[2],
+          tw1s: row[3],
+          tw1e: row[4],
+          tw2s: row[5],
+          tw2e: row[6],
+          beforeId: row[7],
+        });
+      }
+    }
+    setData(result);
+  };
+
+  const handleOnClick = () => {
+    setRoute(!route);
+  };
+
+  return (
+    <Grid container spacing={2}>
+      <Grid item xs={12}>
+        <HMapPlatform apikey={"BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho"}>
+          <HMap
+            style={{ height: "700px" }}
+            options={{
+              zoom: 10,
+              center: { lat: 37.38759, lng: -121.88367 },
+              pixelRatio: window.devicePixelRatio || 1,
+            }}
+          >
+            {data?.map((m) => {
+              return (
+                <HMapMarker
+                  key={m.id}
+                  data={m.address}
+                  options={{ data: null, icon: dotIcon }}
+                />
+              );
+            })}
+            {route && <HMapRoute data={""} />}
+          </HMap>
+        </HMapPlatform>
+      </Grid>
+      <Grid item xs={12}>
+        <Box sx={{ flexGrow: 1 }}>
+          <AppBar position="static">
+            <Toolbar>
+              <CSVReader onFileLoaded={handleonFileLoaded} />
+              <TextField variant="standard" color="secondary" />
+              <TextField variant="standard" />
+              <Typography
+                variant="h6"
+                component="div"
+                sx={{ flexGrow: 1 }}
+              ></Typography>
+              <Button
+                variant="outlined"
+                color="inherit"
+                onClick={handleOnClick}
+              >
+                calculateRoute
+              </Button>
+            </Toolbar>
+          </AppBar>
+          <div style={{ height: 600, width: "100%" }}>
+            <DataGrid rows={data ?? []} columns={columns} />
+          </div>
+        </Box>
+      </Grid>
+    </Grid>
+  );
+}
+
+export default App;
+
+// <HMapMarker position={{ lat: 1, lng: 1 }} />
+//             <HMapMarker position={{ lat: 41.9, lng: 12.5 }} />
+//             <HPolygon
+//               points={[
+//                 51.2, 21.51, 0, 51.2, 25.6, 0, 49.2, 25.9, 0, 48.7, 22.5, 0,
+//                 49.9, 24, 0, 50.5, 24, 0,
+//               ]}
+//               options={{
+//                 data: null,
+//                 style: {
+//                   fillColor: "rgba(150, 100, 0, .3)", //"#FFFFCC",
+//                   //strokeColor: "#829",
+//                   lineWidth: 0,
+//                 },
+//               }}
+//             ></HPolygon>

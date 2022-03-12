@@ -227,42 +227,14 @@ export default function TMap(props: TMapProps) {
         let linestring = H.geo.LineString.fromFlexiblePolyline(
           section.polyline
         );
-        var routeLine = new H.map.Group();
-        routeLine.addObjects([getOutline(linestring), getArrows(linestring)]);
-        map?.addObject(routeLine);
+        if (linestring) {
+          var routeLine = new H.map.Group();
+          routeLine.addObjects([getOutline(linestring), getArrows(linestring)]);
+          map?.addObject(routeLine);
+        }
       });
     });
     xhr.open("GET", baseUrl);
-    xhr.send();
-  }
-
-  function addRoutePolyline(origin: string, destination: string, mk: IData) {
-    var baseurl =
-      "https://router.hereapi.com/v8/routes?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho&transportMode=car&return=polyline" +
-      `&origin=${origin}&destination=${destination}`;
-    var xhr = new XMLHttpRequest();
-
-    xhr.addEventListener("load", () => {
-      const response = JSON.parse(xhr.responseText);
-      const route = response.routes[0];
-      route.sections.forEach((section: any) => {
-        let linestring = H.geo.LineString.fromFlexiblePolyline(
-          section.polyline
-        );
-        mk.arrival = moment(section.arrival.time).toNow();
-        mk.departure = moment(section.departure.time).toNow();
-        mk.stay = moment(section.arrival.time).diff(
-          section.departure.time,
-          "minutes"
-        );
-        //mk.stay = moment(mk.arrival)
-        var routeLine = new H.map.Group();
-        routeLine.addObjects([getOutline(linestring), getArrows(linestring)]);
-        map?.addObject(routeLine);
-      });
-    });
-
-    xhr.open("GET", baseurl);
     xhr.send();
   }
 

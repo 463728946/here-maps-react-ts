@@ -13,7 +13,7 @@ FROM nginx
 
 # RUN mkdir /app
 
-COPY --from=0 /app/build /var/www/html
+COPY --from=0 /app/build /usr/share/nginx/html
 
 
 # COPY nginx.conf /etc/nginx/nginx.conf

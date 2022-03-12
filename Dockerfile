@@ -1,20 +1,15 @@
-# pull official base image
-FROM node:13.12.0-alpine
+FROM node:10
 
-# set working directory
+COPY ./ /app
+
 WORKDIR /app
 
-# add `/app/node_modules/.bin` to $PATH
-ENV PATH /app/node_modules/.bin:$PATH
+RUN npm install && npm run build
 
-# install app dependencies
-COPY package.json ./
-COPY package-lock.json ./
-RUN npm install --silent
-RUN npm install react-scripts@3.4.1 -g --silent
+FROM nginx
 
-# add app
-COPY . ./
+RUN mkdir /app
 
-# start app
-CMD ["npm", "start"]
+COPY --from=0 /app/dist /app
+
+COPY nginx.conf /etc/nginx/nginx.conf

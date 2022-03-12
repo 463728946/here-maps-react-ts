@@ -6,7 +6,8 @@ WORKDIR /app
 
 
 RUN npm config set @here:registry https://repo.platform.here.com/artifactory/api/npm/maps-api-for-javascript/
-RUN npm install && npm run build
+RUN npm install 
+RUN npm run build
 
 FROM nginx
 

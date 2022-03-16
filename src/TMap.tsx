@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import { useState } from "react";
 import H, { ui } from "@here/maps-api-for-javascript";
 import moment from "moment";
+import { IRequest } from "./App";
+import { Backdrop, CircularProgress } from "@mui/material";
 
 export interface Itemplate {
   id: string;
@@ -26,11 +28,12 @@ export interface IData extends Itemplate {
 
 interface TMapProps {
   data: IData[];
-  calculate: { start: IData | null; end: IData | null };
+  calculate: IRequest;
+  on(runing: boolean): void;
 }
 
 export default function TMap(props: TMapProps) {
-  const { data, calculate } = props;
+  const { data, calculate, on } = props;
   const ref = React.createRef<HTMLDivElement>();
   const [platform] = useState(
     new H.service.Platform({
@@ -39,6 +42,7 @@ export default function TMap(props: TMapProps) {
   );
 
   const [geocoder, setGeocoder] = useState<H.service.GeocodingService>();
+  const [routeService, setRtoueService] = useState<H.service.RoutingService8>();
   const [layers, setLayers] = useState<H.service.DefaultLayers>();
   const [map, setMap] = useState<H.Map>();
   const [ui, setUI] = useState<H.ui.UI>();
@@ -48,7 +52,7 @@ export default function TMap(props: TMapProps) {
       let _leyers = platform.createDefaultLayers();
       setLayers(_leyers);
       let _map = new H.Map(ref.current, _leyers.vector.normal.map, {
-        zoom: 10,
+        zoom: 11,
         center: {
           lat: 37.38759,
           lng: -121.88367,
@@ -59,19 +63,65 @@ export default function TMap(props: TMapProps) {
       let events = new H.mapevents.MapEvents(_map);
       let behavior = new H.mapevents.Behavior(events);
       setGeocoder(platform.getGeocodingService());
+      setRtoueService(platform.getRoutingService(undefined, 8));
       setUI(ui);
     }
   }, []);
 
   useEffect(() => {
-    if (geocoder) {
+    if (data.length > 0) {
+      on(true);
       data.map((m) => geocoding(m));
+      on(false);
     }
   }, [data]);
 
   useEffect(() => {
-    findsequence2();
+    if (calculate.start !== null && calculate.end !== null) {
+      on(true);
+      if (calculate.func === "route") {
+        let via = data
+          .filter(
+            (f) => f.id !== calculate.start?.id && f.id !== calculate.end?.id
+          )
+          .map((m) => m.location);
+        routeService?.calculateRoute(
+          {
+            origin: data.find((x) => x.id === calculate.start?.id)?.location,
+            destination: data.find((x) => x.id === calculate.end?.id)?.location,
+            transportMode: calculate.mode.transportMode,
+            routingMode: calculate.mode.routingMode,
+            via: new H.service.Url.MultiValueQueryParameter(via),
+            return: "polyline,summary",
+          },
+          sectionsHandle,
+          () => {
+            throw new Error("calculateRoute error");
+          }
+        );
+      } else {
+        findsequence2(
+          data.find((x) => x.id === calculate.start?.id),
+          data.find((x) => x.id === calculate.end?.id)
+        );
+      }
+      on(false);
+    }
   }, [calculate]);
+
+  const sectionsHandle = (response: any) => {
+    var leng = 0;
+    response.routes[0].sections.forEach((section: any) => {
+      let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+      if (linestring) {
+        var routeLine = new H.map.Group();
+        routeLine.addObjects([getOutline(linestring), getArrows(linestring)]);
+        map?.addObject(routeLine);
+      }
+      leng += section.summary.length;
+    });
+    console.log(leng / 1000, "km");
+  };
 
   function getAcc(tws: string[]) {
     var str = tws
@@ -103,7 +153,7 @@ export default function TMap(props: TMapProps) {
         };
         var marker = new H.map.Marker(location, {
           data: null,
-          icon: dotIcon(),
+          icon: dotIcon(item.id),
         });
 
         marker.addEventListener(
@@ -132,7 +182,7 @@ export default function TMap(props: TMapProps) {
       .filter((m) => m.id !== calculate.start?.id && m.id !== calculate.end?.id)
       .forEach((m, i) => {
         m.destination = `destination${i}`;
-        //m.constraints = `${m.id};${m.location}`;
+        m.constraints = "";
         if (m.st) m.constraints = `${m.constraints};st=${m.st}`;
         if (m.acc) m.constraints = `${m.constraints};acc=${m.acc}`;
         if (m.at) m.constraints = `${m.constraints};at=${m.at}`;
@@ -152,54 +202,65 @@ export default function TMap(props: TMapProps) {
       .join("");
   }
 
-  function findsequence2() {
-    if (calculate.start !== null && calculate.end !== null) {
-      var start = data.find((x) => x.id === calculate.start?.id);
-      var end = data.find((x) => x.id === calculate.end?.id);
+  function findsequence2(start?: IData, end?: IData) {
+    if (start && end) {
+      start.marker?.setIcon(dotIcon("S"));
+      end.marker?.setIcon(dotIcon("E"));
 
-      if (start && end) {
-        start.marker?.setIcon(dotIcon("S"));
-        end.marker?.setIcon(dotIcon("E"));
+      var baseurl =
+        "https://wps.hereapi.com/v8/findsequence2?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho" +
+        "&mode=fastest;truck;traffic:disabled;" +
+        `&departure=${moment().format("YYYY-MM-DDTHH:mm:ssZ")}` +
+        `&start=${start?.location}&end=${end?.location}` +
+        getDestinations();
 
-        var baseurl =
-          "https://wps.hereapi.com/v8/findsequence2?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho" +
-          "&mode=fastest;car;traffic:disabled;" +
-          `&departure=${moment().format()}` +
-          `&start=${start?.location}&end=${end?.location}` +
-          getDestinations();
-        var xhr = new XMLHttpRequest();
-        xhr.addEventListener("load", () => {
-          const response = JSON.parse(xhr.responseText);
-          const waypoints = response.results[0].waypoints;
+      var xhr = new XMLHttpRequest();
+      xhr.addEventListener("load", () => {
+        const response = JSON.parse(xhr.responseText);
+        const waypoints = response.results[0].waypoints;
+        const interconnections = response.results[0].interconnections;
+        console.log("findsequence2:", waypoints);
 
-          waypoints.forEach((wp: any) => {
-            if (wp.id === "start") {
-              start!.sequence = wp.sequence;
-              start!.arrival = moment(wp.estimatedArrival).toNow();
-              start!.departure = moment(wp.estimatedDeparture).toNow();
-            } else if (wp.id === "end") {
-              end!.sequence = wp.sequence;
-              end!.arrival = moment(wp.estimatedArrival).toNow();
-              end!.departure = moment(wp.estimatedDeparture).toNow();
+        waypoints.forEach((wp: any) => {
+          if (wp.id === "start") {
+            start!.sequence = wp.sequence;
+            start!.arrival = moment(wp.estimatedArrival).toNow();
+            start!.departure = moment(wp.estimatedDeparture).toNow();
+          } else if (wp.id === "end") {
+            end!.sequence = wp.sequence;
+            end!.arrival = moment(wp.estimatedArrival).toNow();
+            end!.departure = moment(wp.estimatedDeparture).toNow();
+          } else {
+            var mk = data.find((x) => x.id === wp.id);
+            if (mk) {
+              mk.sequence = wp.sequence;
+              mk.marker?.setIcon(dotIcon(wp.sequence, "#f44336"));
+              mk.arrival = moment(wp.estimatedArrival).toNow();
+              mk.departure = moment(wp.estimatedDeparture).toNow();
             } else {
-              var mk = data.find((x) => x.id === wp.id);
-              if (mk) {
-                mk.sequence = wp.sequence;
-                mk.marker?.setIcon(dotIcon(wp.sequence, "#f44336"));
-                mk.arrival = moment(wp.estimatedArrival).toNow();
-                mk.departure = moment(wp.estimatedDeparture).toNow();
-              } else {
-                throw new Error("miss some marker");
-              }
+              throw new Error("miss some marker");
             }
-          });
-
-          routev8(start, end);
+          }
         });
 
-        xhr.open("GET", baseurl);
-        xhr.send();
-      }
+        interconnections.forEach((element: any) => {
+          var s =
+            element.fromWaypoint === "start"
+              ? start
+              : data.find((x) => x.id === element.fromWaypoint);
+          var e =
+            element.toWaypoint === "end"
+              ? end
+              : data.find((x) => x.id === element.toWaypoint);
+
+          if (s && e) {
+            routev8(s, e);
+          }
+        });
+      });
+
+      xhr.open("GET", baseurl);
+      xhr.send();
     }
   }
 
@@ -216,12 +277,14 @@ export default function TMap(props: TMapProps) {
       `https://router.hereapi.com/v8/routes?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho` +
       `&return=polyline` +
       `&transportMode=car` +
-      `&origin=${start?.location}&destination=${end?.location}` +
-      getVia(start, end);
+      `&origin=${start?.location}&destination=${end?.location}`;
+    // +
+    // getVia();
 
     var xhr = new XMLHttpRequest();
     xhr.addEventListener("load", () => {
       const response = JSON.parse(xhr.responseText);
+      console.log("routes:", response);
       var route = response.routes[0];
       route.sections.forEach((section: any) => {
         let linestring = H.geo.LineString.fromFlexiblePolyline(
@@ -241,9 +304,10 @@ export default function TMap(props: TMapProps) {
   const getOutline = (linestring: H.geo.LineString) =>
     new H.map.Polyline(linestring, {
       data: null,
+      arrows: {},
       style: {
-        lineWidth: 10,
-        strokeColor: "rgba(2, 119, 189, 0.7)", //"rgba(0, 128, 255, 0.7)",
+        lineWidth: 4,
+        strokeColor: `rgba(2, 119, 189, 1)`, //"rgba(0, 128, 255, 0.7)", 119
         lineTailCap: "arrow-tail",
         lineHeadCap: "arrow-head",
       },
@@ -253,10 +317,10 @@ export default function TMap(props: TMapProps) {
     new H.map.Polyline(linestring, {
       data: null,
       style: {
-        lineWidth: 5,
+        lineWidth: 8,
         fillColor: "white",
-        strokeColor: "rgba(255, 255, 255, 1)",
-        lineDash: [0, 10],
+        strokeColor: "white",
+        lineDash: [0, 5],
         lineTailCap: "arrow-tail",
         lineHeadCap: "arrow-head",
       },
@@ -283,5 +347,5 @@ export default function TMap(props: TMapProps) {
     );
   };
 
-  return <div id="mapContainer" ref={ref} style={{ height: 600 }} />;
+  return <div id="mapContainer" ref={ref} style={{ height: 800 }} />;
 }

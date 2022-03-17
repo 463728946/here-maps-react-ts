@@ -1,48 +1,25 @@
 import {
   Autocomplete,
   Box,
-  Grid,
   TextField,
   Button,
-  CssBaseline,
-  styled,
-  SwipeableDrawer,
   Select,
   MenuItem,
   AppBar,
-  IconButton,
   Toolbar,
-  Typography,
   Drawer,
-  Backdrop,
-  CircularProgress,
+  Stack,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import CSVReader from "react-csv-reader";
-import { useEffect, useState } from "react";
-import TMap, { IData } from "./TMap";
-import { Global } from "@emotion/react";
-import { grey } from "@mui/material/colors";
+import { useRef, useState } from "react";
+import TMap, { IData, IRUN } from "./TMap";
 import React from "react";
-import MenuIcon from "@mui/icons-material/Menu";
-
-const drawerBleeding = 56;
-const Root = styled("div")(({ theme }) => ({
-  height: "100%",
-  backgroundColor:
-    theme.palette.mode === "light"
-      ? grey[100]
-      : theme.palette.background.default,
-}));
-
-const StyledBox = styled(Box)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === "light" ? "#fff" : grey[800],
-}));
 
 export interface IRequest {
   func: "route" | "find";
   mode: {
-    routingMode: "fast" | "short";
+    routingMode: "fast" | "short" | "fastest" | "shortest" | "balanced";
     transportMode: "car" | "truck";
     traffic: "disabled" | "enabled";
   };
@@ -54,14 +31,12 @@ export interface IRequest {
 
 function App() {
   const [open, setOpen] = React.useState(false);
-  const [runing, setRuning] = React.useState(false);
-  // -----------
-
-  const [data, setData] = useState<IData[]>([]);
+  const [table, setTable] = React.useState<IData[]>();
+  const mapRef = useRef<IRUN>();
   const [request, setRequest] = useState<IRequest>({
     func: "find",
     mode: {
-      routingMode: "short",
+      routingMode: "fastest",
       transportMode: "truck",
       traffic: "disabled",
     },
@@ -88,13 +63,11 @@ function App() {
   ];
 
   const handleonFileLoaded = (data: Array<Array<string>>) => {
-    var result: IData[] = [];
-    console.log("read file:", data);
-
+    let temp: IData[] = [];
     for (let index = 1; index < data.length; index++) {
       const row = data[index];
       if (row.length === 7) {
-        result.push({
+        temp.push({
           id: row[0],
           name: row[1],
           address: row[2],
@@ -112,7 +85,7 @@ function App() {
         });
       }
     }
-    setData(result);
+    setTable(temp);
   };
 
   const toggleDrawer =
@@ -128,178 +101,154 @@ function App() {
       setOpen(open);
     };
 
-  const arg = (
-    <Box sx={{ width: "auto", height: 900 }}>
-      <DataGrid rows={data ?? []} columns={columns} />
-    </Box>
+  const stack = (
+    <Stack direction="row" spacing={2}>
+      <Select
+        value={request.func}
+        variant="outlined"
+        onChange={(e) => {
+          var value = e.target.value;
+          if (value === "route" || value === "find") {
+            if (value === "route") {
+              setRequest({
+                ...request,
+                func: value,
+                mode: { ...request.mode, routingMode: "fast" },
+              });
+            } else if (value === "find") {
+              setRequest({
+                ...request,
+                func: value,
+                mode: { ...request.mode, routingMode: "fastest" },
+              });
+            }
+          }
+        }}
+      >
+        <MenuItem value={"find"}>find</MenuItem>
+        <MenuItem value={"route"}>route</MenuItem>
+      </Select>
+      <Select
+        label="mode"
+        value={request.mode.routingMode}
+        onChange={(e) => {
+          var v = e.target.value;
+          if (
+            v === "fast" ||
+            v === "short" ||
+            v === "fastest" ||
+            v === "shortest" ||
+            v === "balanced"
+          ) {
+            let temp = { ...request };
+            temp.mode.routingMode = v;
+            setRequest(temp);
+          }
+        }}
+      >
+        {request.func === "route"
+          ? ["fast", "short"].map((v, i) => (
+              <MenuItem key={i} value={v}>
+                {v}
+              </MenuItem>
+            ))
+          : ["fastest", "shortest", "balanced"].map((v, i) => (
+              <MenuItem key={i} value={v}>
+                {v}
+              </MenuItem>
+            ))}
+      </Select>
+      <Select
+        label="transport"
+        value={request.mode.transportMode}
+        onChange={(e) => {
+          var v = e.target.value;
+          if (v === "car" || v === "truck") {
+            let temp = { ...request };
+            temp.mode.transportMode = v;
+            setRequest(temp);
+          }
+        }}
+      >
+        <MenuItem value={"car"}>car</MenuItem>
+        <MenuItem value={"truck"}>truck</MenuItem>
+      </Select>
+      <Select
+        label="traffic"
+        disabled={request.func === "route"}
+        value={request.mode.traffic}
+        onChange={(e) => {
+          var v = e.target.value;
+          if (v === "enabled" || v === "disabled") {
+            let temp = { ...request };
+            temp.mode.traffic = v;
+            setRequest(temp);
+          }
+        }}
+      >
+        <MenuItem value={"enabled"}>enabled</MenuItem>
+        <MenuItem value={"disabled"}>disabled</MenuItem>
+      </Select>
+      <Autocomplete
+        value={request.start}
+        options={table ?? []}
+        getOptionLabel={(option) => option.name}
+        renderInput={(params) => <TextField {...params} label="Start" />}
+        onChange={(e, value) => {
+          setRequest({
+            ...request,
+            start: value,
+          });
+        }}
+      />
+      <Autocomplete
+        value={request.end}
+        options={table ?? []}
+        getOptionLabel={(option) => option.name}
+        renderInput={(params) => <TextField {...params} label="End" />}
+        onChange={(e, value) =>
+          setRequest({
+            ...request,
+            end: value,
+          })
+        }
+      />
+      <Button color="inherit" onClick={() => mapRef.current?.run()}>
+        run
+      </Button>
+      <Button color="inherit" onClick={toggleDrawer(true)}>
+        show table
+      </Button>
+    </Stack>
   );
 
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
-          <CSVReader onFileLoaded={handleonFileLoaded} />
-          <Select
-            disabled
-            value={request.func}
-            variant="outlined"
-            onChange={(e) => {
-              var value = e.target.value;
-              if (value === "route" || value === "find") {
-                setRequest({ ...request, func: value });
-              }
-            }}
-          >
-            <MenuItem value={"find"}>find</MenuItem>
-            <MenuItem value={"route"}>route</MenuItem>
-          </Select>
-          <Select
-            disabled
-            label="mode"
-            value={request.mode.routingMode}
-            onChange={(e) => {
-              var v = e.target.value;
-              if (v === "fast" || v === "short") {
-                let temp = { ...request };
-                temp.mode.routingMode = v;
-                setRequest(temp);
-              }
-            }}
-          >
-            <MenuItem value={"fast"}>fast</MenuItem>
-            <MenuItem value={"short"}>short</MenuItem>
-          </Select>
-          <Select
-            disabled
-            label="transport"
-            value={request.mode.transportMode}
-            onChange={(e) => {
-              var v = e.target.value;
-              if (v === "car" || v === "truck") {
-                let temp = { ...request };
-                temp.mode.transportMode = v;
-                setRequest(temp);
-              }
-            }}
-          >
-            <MenuItem value={"car"}>car</MenuItem>
-            <MenuItem value={"truck"}>truck</MenuItem>
-          </Select>
-          <Select
-            disabled
-            label="traffic"
-            value={request.mode.traffic}
-            onChange={(e) => {
-              var v = e.target.value;
-              if (v === "enabled" || v === "disabled") {
-                let temp = { ...request };
-                temp.mode.traffic = v;
-                setRequest(temp);
-              }
-            }}
-          >
-            <MenuItem value={"enabled"}>enabled</MenuItem>
-            <MenuItem value={"disabled"}>disabled</MenuItem>
-          </Select>
-
-          <Autocomplete
-            value={request.start}
-            disabled={request.start !== null}
-            options={data}
-            getOptionLabel={(option) => option.name}
-            renderInput={(params) => <TextField {...params} label="Start" />}
-            onChange={(e, value) => {
-              setRequest({
-                ...request,
-                start: value,
-              });
-            }}
-          />
-          <Autocomplete
-            value={request.end}
-            disabled={request.end !== null}
-            options={data}
-            getOptionLabel={(option) => option.name}
-            renderInput={(params) => <TextField {...params} label="End" />}
-            onChange={(e, value) =>
-              setRequest({
-                ...request,
-                end: value,
-              })
-            }
-          />
-          <Button color="inherit" onClick={toggleDrawer(true)}>
-            show table
-          </Button>
+          {table === undefined ? (
+            <CSVReader
+              disabled={table !== undefined}
+              onFileLoaded={handleonFileLoaded}
+            />
+          ) : (
+            stack
+          )}
         </Toolbar>
       </AppBar>
       <Drawer anchor={"top"} open={open} onClose={toggleDrawer(false)}>
-        {arg}
+        <Box sx={{ width: "auto", height: 900 }}>
+          <DataGrid rows={table ?? []} columns={columns} />
+        </Box>
       </Drawer>
-      <TMap
-        data={data}
-        calculate={request}
-        on={(runing) => setRuning(runing)}
-      />
-      <Backdrop
+      <TMap config={request} table={table ?? []} ref={mapRef} />
+      {/* <Backdrop
         sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={runing}
       >
         <CircularProgress color="inherit" />
-      </Backdrop>
+      </Backdrop> */}
     </Box>
   );
-
-  // return (
-  //   <Root>
-  //     <CssBaseline />
-  //     <Global
-  //       styles={{
-  //         ".MuiDrawer-root > .MuiPaper-root": {
-  //           height: `calc(90% - ${drawerBleeding}px)`,
-  //           overflow: "visible",
-  //         },
-  //       }}
-  //     />
-  //     <TMap data={data} calculate={request} />
-  //     <Box sx={{ textAlign: "center", pt: 1 }}>
-  //       <Button onClick={toggleDrawer(true)}>Open</Button>
-  //     </Box>
-  //     <SwipeableDrawer
-  //       container={container}
-  //       anchor="bottom"
-  //       open={open}
-  //       onClose={toggleDrawer(false)}
-  //       onOpen={toggleDrawer(true)}
-  //       swipeAreaWidth={drawerBleeding}
-  //       disableSwipeToOpen={false}
-  //       ModalProps={{
-  //         keepMounted: true,
-  //       }}
-  //     >
-  //       <StyledBox
-  //         sx={{
-  //           position: "absolute",
-  //           top: -drawerBleeding,
-  //           borderTopLeftRadius: 8,
-  //           borderTopRightRadius: 8,
-  //           visibility: "visible",
-  //           right: 0,
-  //           left: 0,
-  //         }}
-  //       >
-  //         <Grid container spacing={2}>
-  //           <Grid item xs={2}>
-  //             {arg}
-  //           </Grid>
-  //           <Grid item xs={10}>
-  //             <DataGrid rows={data ?? []} columns={columns} />
-  //           </Grid>
-  //         </Grid>
-  //       </StyledBox>
-  //     </SwipeableDrawer>
-  //   </Root>
-  // );
 }
-
 export default App;

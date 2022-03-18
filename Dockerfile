@@ -11,7 +11,7 @@ RUN npm run build
 
 FROM nginx
 
-# RUN mkdir /app
+# RUN mkdir /apps
 
 COPY --from=0 /app/build /usr/share/nginx/html
 

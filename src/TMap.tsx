@@ -238,15 +238,6 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       var d = 0,
         l = 0;
       route.sections.forEach((section: any) => {
-        console.log(
-          "id:",
-          section.departure.place.waypoint,
-          "duration:",
-          section.summary.duration,
-          "length:",
-          section.summary.length
-        );
-
         d += section.summary.duration;
         l += section.summary.length;
         let linestring = H.geo.LineString.fromFlexiblePolyline(
@@ -319,6 +310,9 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       </Grid>
       <Grid item xs={2}>
         <List>
+          <ListItem>
+            <ListItemText>ver0.3</ListItemText>
+          </ListItem>
           <ListItem>
             <ListItemText>{log?.distance / 1000}km</ListItemText>
           </ListItem>

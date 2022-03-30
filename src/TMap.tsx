@@ -32,7 +32,7 @@ export interface IData extends Itemplate {
 }
 
 export interface IRUN {
-  run(): void;
+  route(): void;
 }
 
 interface TMapProps {
@@ -61,10 +61,10 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       let _leyers = platform.createDefaultLayers();
       setLayers(_leyers);
       let _map = new H.Map(mapRef.current, _leyers.vector.normal.map, {
-        zoom: 11,
+        zoom: 10,
         center: {
-          lat: 37.38759,
-          lng: -121.88367,
+          lat: 37.42487,
+          lng: -121.88927,
         },
       });
       setMap(_map);
@@ -82,13 +82,9 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
   }, [table]);
 
   useImperativeHandle(ref, () => ({
-    run: () => {
+    route: () => {
       if (config.start !== null && config.end !== null && table.length > 0) {
-        if (config.func === "find") {
-          findsequence2(config.start, config.end);
-        } else {
-          routev8(config.start, config.end);
-        }
+        findsequence2(config.start, config.end);
       }
     },
   }));
@@ -104,7 +100,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
           lng: position.Longitude,
         };
         var marker = new H.map.Marker(location, {
-          data: null,
+          data: item.id,
           icon: dotIcon(item.id),
         });
 
@@ -118,6 +114,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
           },
           false
         );
+
         map?.addObject(marker);
         item.location = `${position.Latitude},${position.Longitude}`;
         item.marker = marker;
@@ -131,7 +128,6 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
   function findsequence2(start: IData, end: IData) {
     start.marker?.setIcon(dotIcon("S"));
     end.marker?.setIcon(dotIcon("E"));
-
     var baseurl =
       "https://wps.hereapi.com/v8/findsequence2?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho" +
       `&mode=${config.mode.routingMode};${config.mode.transportMode};traffic:${config.mode.traffic};` +
@@ -143,7 +139,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
     xhr.addEventListener("load", () => {
       const response = JSON.parse(xhr.responseText);
       const waypoints = response.results[0].waypoints;
-      //var lineString = new H.geo.LineString();
+
       waypoints.forEach((wp: any) => {
         if (wp.id === "start") {
           start!.sequence = wp.sequence;
@@ -164,8 +160,9 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
             throw new Error("miss some marker");
           }
         }
-        //lineString.pushLatLngAlt(wp.lat, wp.lng, undefined);
       });
+
+      routev8(buildVia(waypoints));
       setLog({
         distance: Number(response.results[0].distance),
         time: Number(response.results[0].time),
@@ -207,33 +204,42 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       .join("");
   }
 
-  function routev8(start: IData, end: IData) {
-    let via =
-      config.func === "find"
-        ? ""
-        : table
-            .filter((f) => f.id !== start.id && f.id !== end.id)
-            .map((m) => `&via=${m.location}`)
-            .join("");
+  function buildVia(
+    waypoints: [
+      {
+        id: string;
+        lat: number;
+        lng: number;
+        sequence: number;
+        estimatedArrival?: Date;
+        estimatedDeparture?: Date;
+        fulfilledConstraints: [];
+      }
+    ]
+  ) {
+    const origin = waypoints.find((x) => x.id === "start");
+    const destination = waypoints.find((x) => x.id === "end");
+
     var baseUrl =
       `https://router.hereapi.com/v8/routes?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho` +
       `&return=polyline,summary` +
-      `&routingMode=${
-        config.mode.routingMode === "balanced"
-          ? "fast"
-          : config.mode.routingMode === "fastest"
-          ? "fast"
-          : config.mode.routingMode === "shortest"
-          ? "short"
-          : config.mode.routingMode
-      }` +
+      `&routingMode=fast` +
       `&transportMode=${config.mode.transportMode}` +
-      `&origin=${start.location}&destination=${end.location}${via}`;
+      `&origin=${origin!.lat},${origin!.lng}&destination=${destination!.lat},${
+        destination!.lng
+      }` +
+      `${waypoints
+        .filter((x) => x.id !== "start" && x.id !== "end")
+        .map((w) => `&via=${w.lat},${w.lng}`)
+        .join("")}`;
 
+    return baseUrl;
+  }
+
+  function routev8(via: string) {
     var xhr = new XMLHttpRequest();
     xhr.addEventListener("load", () => {
       const response = JSON.parse(xhr.responseText);
-      console.log("routes:", response);
       var route = response.routes[0];
       var d = 0,
         l = 0;
@@ -255,7 +261,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
         time: d,
       });
     });
-    xhr.open("GET", baseUrl);
+    xhr.open("GET", via);
     xhr.send();
   }
 
@@ -278,13 +284,14 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       }
     );
   };
+
   const getOutline = (linestring: H.geo.LineString) =>
     new H.map.Polyline(linestring, {
       data: null,
       arrows: {},
       style: {
-        lineWidth: 4,
-        strokeColor: `rgba(2, 119, 189, 1)`,
+        lineWidth: 10,
+        strokeColor: "#304ffe", //`rgba(102, 51, 255, 0.8)`,
         lineTailCap: "arrow-tail",
         lineHeadCap: "arrow-head",
       },
@@ -294,7 +301,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
     new H.map.Polyline(linestring, {
       data: null,
       style: {
-        lineWidth: 8,
+        lineWidth: 6,
         fillColor: "white",
         strokeColor: "white",
         lineDash: [0, 5],

@@ -103,7 +103,7 @@ function App() {
 
   const stack = (
     <Stack direction="row" spacing={2}>
-      <Select
+      {/* <Select
         value={request.func}
         variant="outlined"
         onChange={(e) => {
@@ -127,7 +127,7 @@ function App() {
       >
         <MenuItem value={"find"}>find</MenuItem>
         <MenuItem value={"route"}>route</MenuItem>
-      </Select>
+      </Select> */}
       <Select
         label="mode"
         value={request.mode.routingMode}
@@ -213,8 +213,11 @@ function App() {
           })
         }
       />
-      <Button color="inherit" onClick={() => mapRef.current?.run()}>
-        run
+      {/* <Button color="inherit" onClick={() => mapRef.current?.find()}>
+        find
+      </Button> */}
+      <Button color="inherit" onClick={() => mapRef.current?.route()}>
+        route
       </Button>
       <Button color="inherit" onClick={toggleDrawer(true)}>
         show table

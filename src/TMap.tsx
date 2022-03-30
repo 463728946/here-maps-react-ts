@@ -318,7 +318,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       <Grid item xs={2}>
         <List>
           <ListItem>
-            <ListItemText>ver0.3.0</ListItemText>
+            <ListItemText>ver0.4.0</ListItemText>
           </ListItem>
           <ListItem>
             <ListItemText>{log?.distance / 1000}km</ListItemText>

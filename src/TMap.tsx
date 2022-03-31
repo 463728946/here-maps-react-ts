@@ -3,12 +3,15 @@ import { useState } from "react";
 import H from "@here/maps-api-for-javascript";
 import moment from "moment";
 import { IRequest } from "./App";
-import { Grid, List, ListItem, ListItemText } from "@mui/material";
-
-interface ILog {
-  distance: number;
-  time: number;
-}
+import {
+  Divider,
+  Grid,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemText,
+  TextField,
+} from "@mui/material";
 
 export interface Itemplate {
   id: string;
@@ -51,9 +54,13 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
   const [layers, setLayers] = useState<H.service.DefaultLayers>();
   const [map, setMap] = useState<H.Map>();
   const [ui, setUI] = useState<H.ui.UI>();
-  const [log, setLog] = useState<ILog>({
+  const [distance, setDistance] = useState({
     distance: 0,
     time: 0,
+  });
+  const [duration, setDuration] = useState({
+    duration: 0,
+    lenght: 0,
   });
 
   useEffect(() => {
@@ -128,10 +135,17 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
   function findsequence2(start: IData, end: IData) {
     start.marker?.setIcon(dotIcon("S"));
     end.marker?.setIcon(dotIcon("E"));
+    const improve =
+      config.improve === "distance"
+        ? `&improveFor=distance`
+        : config.improve === "time"
+        ? `&improveFor=time`
+        : "";
     var baseurl =
       "https://wps.hereapi.com/v8/findsequence2?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho" +
       `&mode=${config.mode.routingMode};${config.mode.transportMode};traffic:${config.mode.traffic};` +
       `&departure=${moment().format("YYYY-MM-DDTHH:mm:ssZ")}` +
+      improve +
       `&start=${start.location}&end=${end.location}` +
       getDestinations(start, end);
 
@@ -162,11 +176,12 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
         }
       });
 
-      routev8(buildVia(waypoints));
-      setLog({
-        distance: Number(response.results[0].distance),
-        time: Number(response.results[0].time),
+      setDistance({
+        distance: response.results[0].distance,
+        time: response.results[0].time,
       });
+
+      routev8(buildVia(waypoints));
     });
 
     xhr.open("GET", baseurl);
@@ -256,9 +271,9 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
         }
       });
 
-      setLog({
-        distance: l,
-        time: d,
+      setDuration({
+        duration: d,
+        lenght: l,
       });
     });
     xhr.open("GET", via);
@@ -310,6 +325,20 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       },
     });
 
+  const XTextField = (label: string, value: number, unit: string) => {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={label}
+        value={value}
+        InputProps={{
+          endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
+        }}
+      />
+    );
+  };
+
   return (
     <Grid container>
       <Grid item xs={10}>
@@ -318,13 +347,19 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       <Grid item xs={2}>
         <List>
           <ListItem>
-            <ListItemText>ver0.4.0</ListItemText>
+            <ListItemText>ver0.5.0</ListItemText>
+          </ListItem>
+          <Divider>summary</Divider>
+          <ListItem>
+            {XTextField("distance", distance.distance / 1000, "km")}
+          </ListItem>
+          <ListItem>{XTextField("time", distance.time / 60, "min")}</ListItem>
+          <Divider>route total</Divider>
+          <ListItem>
+            {XTextField("lenght", duration.lenght / 1000, "km")}
           </ListItem>
           <ListItem>
-            <ListItemText>{log?.distance / 1000}km</ListItemText>
-          </ListItem>
-          <ListItem>
-            <ListItemText>{log?.time / 60}min</ListItemText>
+            {XTextField("duration", duration.duration / 60, "min")}
           </ListItem>
         </List>
       </Grid>

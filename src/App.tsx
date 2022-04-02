@@ -16,34 +16,9 @@ import { useRef, useState } from "react";
 import TMap, { IData, IRUN } from "./TMap";
 import React from "react";
 
-export interface IRequest {
-  mode: {
-    routingMode: "fastest" | "shortest" | "balanced";
-    transportMode: "car" | "truck";
-    traffic: "disabled" | "enabled";
-  };
-  departure: Date;
-  improve: "distance" | "time" | "";
-  start: IData | null;
-  end: IData | null;
-}
-
 function App() {
   const [open, setOpen] = React.useState(false);
   const [table, setTable] = React.useState<IData[]>();
-  const mapRef = useRef<IRUN>();
-  const [request, setRequest] = useState<IRequest>({
-    mode: {
-      routingMode: "fastest",
-      transportMode: "truck",
-      traffic: "disabled",
-    },
-    departure: new Date(),
-    improve: "",
-    start: null,
-    end: null,
-  });
-
   const columns: GridColDef[] = [
     { field: "id", headerName: "Id", width: 50 },
     { field: "name", headerName: "Name", width: 100 },
@@ -99,112 +74,112 @@ function App() {
       setOpen(open);
     };
 
-  const stack = (
-    <Stack direction="row" spacing={2}>
-      <Select
-        label="mode"
-        fullWidth
-        value={request.mode.routingMode}
-        onChange={(e) => {
-          var v = e.target.value;
-          if (v === "fastest" || v === "shortest" || v === "balanced") {
-            let temp = { ...request };
-            temp.mode.routingMode = v;
-            setRequest(temp);
-          }
-        }}
-      >
-        <MenuItem value={"fastest"}>fastest</MenuItem>
-        <MenuItem value={"shortest"}>shortest</MenuItem>
-        <MenuItem value={"balanced"}>balanced</MenuItem>
-      </Select>
-      <Select
-        label="transport"
-        fullWidth
-        value={request.mode.transportMode}
-        onChange={(e) => {
-          var v = e.target.value;
-          if (v === "car" || v === "truck") {
-            let temp = { ...request };
-            temp.mode.transportMode = v;
-            setRequest(temp);
-          }
-        }}
-      >
-        <MenuItem value={"car"}>car</MenuItem>
-        <MenuItem value={"truck"}>truck</MenuItem>
-      </Select>
-      <Select
-        label="traffic"
-        fullWidth
-        value={request.mode.traffic}
-        onChange={(e) => {
-          var v = e.target.value;
-          if (v === "enabled" || v === "disabled") {
-            let temp = { ...request };
-            temp.mode.traffic = v;
-            setRequest(temp);
-          }
-        }}
-      >
-        <MenuItem value={"enabled"}>enabled</MenuItem>
-        <MenuItem value={"disabled"}>disabled</MenuItem>
-      </Select>
-      <Select
-        fullWidth
-        label="improve"
-        value={request.improve}
-        onChange={(e) => {
-          var v = e.target.value;
-          if (v === "distance" || v === "time" || v === "") {
-            let temp = { ...request };
-            temp.improve = v;
-            setRequest(temp);
-          }
-        }}
-      >
-        <MenuItem value={""}></MenuItem>
-        <MenuItem value={"distance"}>distance</MenuItem>
-        <MenuItem value={"time"}>time</MenuItem>
-      </Select>
-      <Autocomplete
-        fullWidth
-        value={request.start}
-        options={table ?? []}
-        getOptionLabel={(option) => option.name}
-        renderInput={(params) => <TextField {...params} label="Start" />}
-        onChange={(e, value) => {
-          setRequest({
-            ...request,
-            start: value,
-          });
-        }}
-      />
-      <Autocomplete
-        value={request.end}
-        fullWidth
-        options={table ?? []}
-        getOptionLabel={(option) => option.name}
-        renderInput={(params) => <TextField {...params} label="End" />}
-        onChange={(e, value) =>
-          setRequest({
-            ...request,
-            end: value,
-          })
-        }
-      />
-      <Button color="inherit" onClick={() => mapRef.current?.route()}>
-        route
-      </Button>
-      <Button color="inherit" onClick={toggleDrawer(true)}>
-        show table
-      </Button>
-    </Stack>
-  );
+  // const stack = (
+  //   <Stack direction="row" spacing={2}>
+  //     <Select
+  //       label="mode"
+  //       fullWidth
+  //       value={request.mode.routingMode}
+  //       onChange={(e) => {
+  //         var v = e.target.value;
+  //         if (v === "fastest" || v === "shortest" || v === "balanced") {
+  //           let temp = { ...request };
+  //           temp.mode.routingMode = v;
+  //           setRequest(temp);
+  //         }
+  //       }}
+  //     >
+  //       <MenuItem value={"fastest"}>fastest</MenuItem>
+  //       <MenuItem value={"shortest"}>shortest</MenuItem>
+  //       <MenuItem value={"balanced"}>balanced</MenuItem>
+  //     </Select>
+  //     <Select
+  //       label="transport"
+  //       fullWidth
+  //       value={request.mode.transportMode}
+  //       onChange={(e) => {
+  //         var v = e.target.value;
+  //         if (v === "car" || v === "truck") {
+  //           let temp = { ...request };
+  //           temp.mode.transportMode = v;
+  //           setRequest(temp);
+  //         }
+  //       }}
+  //     >
+  //       <MenuItem value={"car"}>car</MenuItem>
+  //       <MenuItem value={"truck"}>truck</MenuItem>
+  //     </Select>
+  //     <Select
+  //       label="traffic"
+  //       fullWidth
+  //       value={request.mode.traffic}
+  //       onChange={(e) => {
+  //         var v = e.target.value;
+  //         if (v === "enabled" || v === "disabled") {
+  //           let temp = { ...request };
+  //           temp.mode.traffic = v;
+  //           setRequest(temp);
+  //         }
+  //       }}
+  //     >
+  //       <MenuItem value={"enabled"}>enabled</MenuItem>
+  //       <MenuItem value={"disabled"}>disabled</MenuItem>
+  //     </Select>
+  //     <Select
+  //       fullWidth
+  //       label="improve"
+  //       value={request.improve}
+  //       onChange={(e) => {
+  //         var v = e.target.value;
+  //         if (v === "distance" || v === "time" || v === "") {
+  //           let temp = { ...request };
+  //           temp.improve = v;
+  //           setRequest(temp);
+  //         }
+  //       }}
+  //     >
+  //       <MenuItem value={""}></MenuItem>
+  //       <MenuItem value={"distance"}>distance</MenuItem>
+  //       <MenuItem value={"time"}>time</MenuItem>
+  //     </Select>
+  //     <Autocomplete
+  //       fullWidth
+  //       value={request.start}
+  //       options={table ?? []}
+  //       getOptionLabel={(option) => option.name}
+  //       renderInput={(params) => <TextField {...params} label="Start" />}
+  //       onChange={(e, value) => {
+  //         setRequest({
+  //           ...request,
+  //           start: value,
+  //         });
+  //       }}
+  //     />
+  //     <Autocomplete
+  //       value={request.end}
+  //       fullWidth
+  //       options={table ?? []}
+  //       getOptionLabel={(option) => option.name}
+  //       renderInput={(params) => <TextField {...params} label="End" />}
+  //       onChange={(e, value) =>
+  //         setRequest({
+  //           ...request,
+  //           end: value,
+  //         })
+  //       }
+  //     />
+  //     <Button color="inherit" onClick={() => mapRef.current?.route()}>
+  //       route
+  //     </Button>
+  //     <Button color="inherit" onClick={toggleDrawer(true)}>
+  //       show table
+  //     </Button>
+  //   </Stack>
+  // );
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
+      {/* <AppBar position="static">
         <Toolbar>
           {table === undefined ? (
             <CSVReader
@@ -215,13 +190,9 @@ function App() {
             stack
           )}
         </Toolbar>
-      </AppBar>
-      <Drawer anchor={"top"} open={open} onClose={toggleDrawer(false)}>
-        <Box sx={{ width: "auto", height: 900 }}>
-          <DataGrid rows={table ?? []} columns={columns} />
-        </Box>
-      </Drawer>
-      <TMap config={request} table={table ?? []} ref={mapRef} />
+      </AppBar> */}
+      <Drawer anchor={"top"} open={open} onClose={toggleDrawer(false)}></Drawer>
+      <TMap />
     </Box>
   );
 }

@@ -1,17 +1,41 @@
-import React, { useEffect, useImperativeHandle } from "react";
+import React, { useEffect } from "react";
 import { useState } from "react";
 import H from "@here/maps-api-for-javascript";
 import moment from "moment";
-import { IRequest } from "./App";
 import {
+  Autocomplete,
+  Backdrop,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
   Divider,
   Grid,
   InputAdornment,
   List,
   ListItem,
   ListItemText,
+  Menu,
+  MenuItem,
+  Select,
+  Slider,
   TextField,
 } from "@mui/material";
+import CSVReader from "react-csv-reader";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import { HexColorPicker } from "react-colorful";
+
+export interface IRequest {
+  mode: {
+    routingMode: "fastest" | "shortest" | "balanced";
+    transportMode: "car" | "truck";
+    traffic: "disabled" | "enabled";
+  };
+  departure: Date;
+  improve: "distance" | "time" | "";
+  start: IData | null;
+  end: IData | null;
+}
 
 export interface Itemplate {
   id: string;
@@ -38,22 +62,38 @@ export interface IRUN {
   route(): void;
 }
 
-interface TMapProps {
-  config: IRequest;
-  table: IData[];
-}
-
-const TMap = React.forwardRef((props: TMapProps, ref: any) => {
-  const { config, table } = props;
+const TMap = React.forwardRef(() => {
   const mapRef = React.createRef<HTMLDivElement>();
+
   const platform = new H.service.Platform({
     apikey: "BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho",
   });
+
+  const [background, setBackground] = React.useState<boolean>(false);
+  const [colorCircle, setColorCircle] = useState<string>("#f44336");
+  const [sizeCircle, setSizeCircle] = useState<number>(8);
+
+  const [colorLine, setColorLine] = useState<string>("#304ffe");
+  const [sizeLine, setSizeLine] = useState<number>(10);
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [geocoder, setGeocoder] = useState<H.service.GeocodingService>();
   const [routeService, setRtoueService] = useState<H.service.RoutingService8>();
   const [layers, setLayers] = useState<H.service.DefaultLayers>();
   const [map, setMap] = useState<H.Map>();
   const [ui, setUI] = useState<H.ui.UI>();
+  const [table, setTable] = React.useState<IData[]>([]);
+  const [data, setData] = useState<IRequest>({
+    mode: {
+      routingMode: "fastest",
+      transportMode: "truck",
+      traffic: "disabled",
+    },
+    departure: new Date(),
+    improve: "",
+    start: null,
+    end: null,
+  });
   const [distance, setDistance] = useState({
     distance: 0,
     time: 0,
@@ -62,6 +102,22 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
     duration: 0,
     lenght: 0,
   });
+
+  const columns: GridColDef[] = [
+    { field: "id", headerName: "Id", width: 50 },
+    { field: "name", headerName: "Name", width: 100 },
+    { field: "address", headerName: "address", width: 100 },
+    { field: "location", headerName: "location", width: 100 },
+    { field: "st", headerName: "st", width: 150 },
+    { field: "at", headerName: "at", width: 150 },
+    { field: "acc", headerName: "acc", width: 150 },
+    { field: "beforeId", headerName: "beforeId", width: 150 },
+    { field: "destination", headerName: "destination", width: 100 },
+    { field: "constraints", headerName: "constraints", width: 200 },
+    { field: "sequence", headerName: "sequence", width: 100 },
+    { field: "departure", headerName: "预计出发", width: 200 },
+    { field: "arrival", headerName: "预计到达", width: 200 },
+  ];
 
   useEffect(() => {
     if (platform && mapRef.current) {
@@ -74,27 +130,16 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
           lng: -121.88927,
         },
       });
+      window.addEventListener("resize", () => _map.getViewPort().resize());
       setMap(_map);
       let ui = H.ui.UI.createDefault(_map, _leyers);
       let events = new H.mapevents.MapEvents(_map);
-      let behavior = new H.mapevents.Behavior(events);
+      new H.mapevents.Behavior(events);
       setGeocoder(platform.getGeocodingService());
       setRtoueService(platform.getRoutingService(undefined, 8));
       setUI(ui);
     }
   }, []);
-
-  useEffect(() => {
-    table.forEach((item) => geocode(item));
-  }, [table]);
-
-  useImperativeHandle(ref, () => ({
-    route: () => {
-      if (config.start !== null && config.end !== null && table.length > 0) {
-        findsequence2(config.start, config.end);
-      }
-    },
-  }));
 
   function geocode(item: IData) {
     geocoder?.geocode(
@@ -132,18 +177,32 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
     );
   }
 
-  function findsequence2(start: IData, end: IData) {
+  function clear() {
+    var objs = map?.getObjects();
+    objs?.forEach((x) => {
+      if (x?.getData() === "group") {
+        (x as H.map.Group).removeAll();
+        map?.removeObject(x);
+      }
+    });
+  }
+
+  function findsequence2() {
+    setBackground(true);
+    clear();
+    const start = data.start!;
+    const end = data.end!;
     start.marker?.setIcon(dotIcon("S"));
     end.marker?.setIcon(dotIcon("E"));
     const improve =
-      config.improve === "distance"
+      data.improve === "distance"
         ? `&improveFor=distance`
-        : config.improve === "time"
+        : data.improve === "time"
         ? `&improveFor=time`
         : "";
     var baseurl =
       "https://wps.hereapi.com/v8/findsequence2?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho" +
-      `&mode=${config.mode.routingMode};${config.mode.transportMode};traffic:${config.mode.traffic};` +
+      `&mode=${data.mode.routingMode};${data.mode.transportMode};traffic:${data.mode.traffic};` +
       `&departure=${moment().format("YYYY-MM-DDTHH:mm:ssZ")}` +
       improve +
       `&start=${start.location}&end=${end.location}` +
@@ -167,7 +226,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
           var mk = table.find((x) => x.id === wp.id);
           if (mk) {
             mk.sequence = wp.sequence;
-            mk.marker?.setIcon(dotIcon(wp.sequence, "#f44336"));
+            mk.marker?.setIcon(dotIcon(wp.sequence, colorCircle));
             mk.arrival = moment(wp.estimatedArrival).toNow();
             mk.departure = moment(wp.estimatedDeparture).toNow();
           } else {
@@ -182,6 +241,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       });
 
       routev8(buildVia(waypoints));
+      setBackground(false);
     });
 
     xhr.open("GET", baseurl);
@@ -239,7 +299,7 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       `https://router.hereapi.com/v8/routes?apiKey=BXkE_sgUvewFFWfZOu1jewbPIibBLsH4XrQgGfv0Zho` +
       `&return=polyline,summary` +
       `&routingMode=fast` +
-      `&transportMode=${config.mode.transportMode}` +
+      `&transportMode=${data.mode.transportMode}` +
       `&origin=${origin!.lat},${origin!.lng}&destination=${destination!.lat},${
         destination!.lng
       }` +
@@ -265,9 +325,11 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
           section.polyline
         );
         if (linestring) {
-          var routeLine = new H.map.Group();
-          routeLine.addObjects([getOutline(linestring), getArrows(linestring)]);
-          map?.addObject(routeLine);
+          var group = new H.map.Group({
+            data: "group",
+          });
+          group.addObjects([getOutline(linestring), getArrows(linestring)]);
+          map?.addObject(group);
         }
       });
 
@@ -305,8 +367,8 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
       data: null,
       arrows: {},
       style: {
-        lineWidth: 10,
-        strokeColor: "#304ffe", //`rgba(102, 51, 255, 0.8)`,
+        lineWidth: sizeLine,
+        strokeColor: colorLine, //`rgba(102, 51, 255, 0.8)`,
         lineTailCap: "arrow-tail",
         lineHeadCap: "arrow-head",
       },
@@ -339,29 +401,224 @@ const TMap = React.forwardRef((props: TMapProps, ref: any) => {
     );
   };
 
+  const handleonFileLoaded = (data: Array<Array<string>>) => {
+    let temp: IData[] = [];
+    for (let index = 1; index < data.length; index++) {
+      const row = data[index];
+      if (row.length === 7) {
+        var item: IData = {
+          id: row[0],
+          name: row[1],
+          address: row[2],
+          st: row[3],
+          at: row[4],
+          acc: row[5],
+          beforeId: row[6],
+
+          location: "",
+          destination: "",
+          constraints: "",
+          sequence: -1,
+          arrival: "",
+          departure: "",
+        };
+        geocode(item);
+        temp.push(item);
+      }
+    }
+    setTable(temp);
+  };
+
+  const configContainer = (
+    <Grid container spacing={2} p={2}>
+      <Menu
+        open={anchorEl !== null}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+      >
+        <Card>
+          <CardContent>
+            <HexColorPicker
+              color={anchorEl?.title === "circle" ? colorCircle : colorLine}
+              onChange={(v) => {
+                if (anchorEl?.title === "circle") {
+                  setColorCircle(v);
+                } else {
+                  setColorLine(v);
+                }
+              }}
+            />
+          </CardContent>
+        </Card>
+      </Menu>
+      <Grid item xs={4}>
+        <Autocomplete
+          fullWidth
+          value={data.start}
+          options={table ?? []}
+          getOptionLabel={(option) => option.name}
+          renderInput={(params) => <TextField {...params} label="Start" />}
+          onChange={(e, value) => {
+            setData({
+              ...data,
+              start: value,
+            });
+          }}
+        />
+      </Grid>
+      <Grid item xs={4}>
+        <Autocomplete
+          value={data.end}
+          fullWidth
+          options={table ?? []}
+          getOptionLabel={(option) => option.name}
+          renderInput={(params) => <TextField {...params} label="End" />}
+          onChange={(e, value) =>
+            setData({
+              ...data,
+              end: value,
+            })
+          }
+        />
+      </Grid>
+      <Grid item xs={4}>
+        <Select
+          label="mode"
+          fullWidth
+          value={data.mode.routingMode}
+          onChange={(e) => {
+            var v = e.target.value;
+            if (v === "fastest" || v === "shortest" || v === "balanced") {
+              let temp = { ...data };
+              temp.mode.routingMode = v;
+              setData(temp);
+            }
+          }}
+        >
+          <MenuItem value={"fastest"}>fastest</MenuItem>
+          <MenuItem value={"shortest"}>shortest</MenuItem>
+          <MenuItem value={"balanced"}>balanced</MenuItem>
+        </Select>
+      </Grid>
+      <Grid item xs={4}>
+        <Select
+          label="transport"
+          fullWidth
+          value={data.mode.transportMode}
+          onChange={(e) => {
+            var v = e.target.value;
+            if (v === "car" || v === "truck") {
+              let temp = { ...data };
+              temp.mode.transportMode = v;
+              setData(temp);
+            }
+          }}
+        >
+          <MenuItem value={"car"}>car</MenuItem>
+          <MenuItem value={"truck"}>truck</MenuItem>
+        </Select>
+      </Grid>
+      <Grid item xs={4}>
+        <Select
+          label="traffic"
+          fullWidth
+          value={data.mode.traffic}
+          onChange={(e) => {
+            var v = e.target.value;
+            if (v === "enabled" || v === "disabled") {
+              let temp = { ...data };
+              temp.mode.traffic = v;
+              setData(temp);
+            }
+          }}
+        >
+          <MenuItem value={"enabled"}>enabled</MenuItem>
+          <MenuItem value={"disabled"}>disabled</MenuItem>
+        </Select>
+      </Grid>
+      <Grid item xs={4}>
+        <Select
+          fullWidth
+          label="improve"
+          value={data.improve}
+          onChange={(e) => {
+            var v = e.target.value;
+            if (v === "distance" || v === "time" || v === "") {
+              let temp = { ...data };
+              temp.improve = v;
+              setData(temp);
+            }
+          }}
+        >
+          <MenuItem value={""}></MenuItem>
+          <MenuItem value={"distance"}>distance</MenuItem>
+          <MenuItem value={"time"}>time</MenuItem>
+        </Select>
+      </Grid>
+
+      <Grid item xs={12}>
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={findsequence2}
+          disabled={data.start === null || data.end === null}
+        >
+          route
+        </Button>
+      </Grid>
+    </Grid>
+  );
+
+  const resultContainer = (
+    <Grid container spacing={1} p={2}>
+      <Grid item xs={6}>
+        {XTextField("distance", distance.distance / 1000, "km")}
+      </Grid>
+      <Grid item xs={6}>
+        {XTextField("time", distance.time / 60, "min")}
+      </Grid>
+
+      <Grid item xs={6}>
+        {XTextField("lenght", duration.lenght / 1000, "km")}
+      </Grid>
+      <Grid item xs={6}>
+        {XTextField("duration", duration.duration / 60, "min")}
+      </Grid>
+    </Grid>
+  );
+
+  const tabletContainer = (
+    <Grid container spacing={1} p={2}>
+      <DataGrid sx={{ height: 300 }} rows={table ?? []} columns={columns} />
+    </Grid>
+  );
+
   return (
     <Grid container>
-      <Grid item xs={10}>
-        <div id="mapContainer" ref={mapRef} style={{ height: 800 }} />
-      </Grid>
-      <Grid item xs={2}>
+      <Backdrop
+        sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={background}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
+      <Grid item xs={5}>
         <List>
-          <ListItem>
-            <ListItemText>ver0.5.0</ListItemText>
-          </ListItem>
-          <Divider>summary</Divider>
-          <ListItem>
-            {XTextField("distance", distance.distance / 1000, "km")}
-          </ListItem>
-          <ListItem>{XTextField("time", distance.time / 60, "min")}</ListItem>
-          <Divider>route total</Divider>
-          <ListItem>
-            {XTextField("lenght", duration.lenght / 1000, "km")}
-          </ListItem>
-          <ListItem>
-            {XTextField("duration", duration.duration / 60, "min")}
-          </ListItem>
+          {table.length !== 0 ? null : (
+            <ListItem>
+              <CSVReader onFileLoaded={handleonFileLoaded} />
+              <ListItemText>ver0.5.0</ListItemText>
+            </ListItem>
+          )}
+          <Divider>file</Divider>
+          <ListItem>{configContainer}</ListItem>
+          <Divider>config</Divider>
+          <ListItem>{resultContainer}</ListItem>
+          <Divider>data</Divider>
+          <ListItem>{tabletContainer}</ListItem>
         </List>
+      </Grid>
+      <Grid item xs={7}>
+        <div id="mapContainer" ref={mapRef} style={{ height: 800 }} />
       </Grid>
     </Grid>
   );

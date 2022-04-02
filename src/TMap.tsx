@@ -606,7 +606,7 @@ const TMap = React.forwardRef(() => {
           {table.length !== 0 ? null : (
             <ListItem>
               <CSVReader onFileLoaded={handleonFileLoaded} />
-              <ListItemText>ver0.5.0</ListItemText>
+              <ListItemText>ver0.6.0</ListItemText>
             </ListItem>
           )}
           <Divider>file</Divider>

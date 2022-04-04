@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@arcgis/core": "^4.23.6",
     "@emotion/react": "^11.8.1",
     "@emotion/styled": "^11.8.1",
     "@here/maps-api-for-javascript": "^1.30.9",

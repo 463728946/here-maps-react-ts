@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useState } from "react";
 import H from "@here/maps-api-for-javascript";
-import moment from "moment";
+import moment, { now } from "moment";
 import {
   Autocomplete,
   Backdrop,
@@ -24,6 +24,14 @@ import {
 import CSVReader from "react-csv-reader";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { HexColorPicker } from "react-colorful";
+import ITourPlanningRequest, {
+  IFleet,
+  IJob,
+  IJobPlace,
+  IJobTask,
+  IJobTasks,
+  IPlan,
+} from "./ITourPlanningRequest";
 
 export interface IRequest {
   mode: {
@@ -49,6 +57,10 @@ export interface Itemplate {
 
 export interface IData extends Itemplate {
   location: string;
+  point?: {
+    lat: number;
+    lng: number;
+  };
   destination: string;
   constraints: string;
   sequence: number;
@@ -72,7 +84,6 @@ const TMap = React.forwardRef(() => {
   const [background, setBackground] = React.useState<boolean>(false);
   const [colorCircle, setColorCircle] = useState<string>("#f44336");
   const [sizeCircle, setSizeCircle] = useState<number>(8);
-
   const [colorLine, setColorLine] = useState<string>("#304ffe");
   const [sizeLine, setSizeLine] = useState<number>(10);
 
@@ -147,11 +158,15 @@ const TMap = React.forwardRef(() => {
       (result: any) => {
         let position =
           result.Response.View[0].Result[0].Location.DisplayPosition;
-        let location = {
+        item.point = {
           lat: position.Latitude,
           lng: position.Longitude,
         };
-        var marker = new H.map.Marker(location, {
+        // let location = {
+        //   lat: position.Latitude,
+        //   lng: position.Longitude,
+        // };
+        var marker = new H.map.Marker(item.point, {
           data: item.id,
           icon: dotIcon(item.id),
         });
@@ -177,19 +192,184 @@ const TMap = React.forwardRef(() => {
     );
   }
 
-  function clear() {
+  function clear(tourplanning: boolean) {
     var objs = map?.getObjects();
     objs?.forEach((x) => {
       if (x?.getData() === "group") {
         (x as H.map.Group).removeAll();
         map?.removeObject(x);
+      } else if (x && tourplanning) {
+        map?.removeObject(x);
       }
     });
   }
 
+  function getFleet(item?: { lat: number; lng: number }): IFleet {
+    if (item === undefined) {
+      throw new Error("error id");
+    }
+    return {
+      types: [
+        {
+          id: "TB519U",
+          profile: "TB519U",
+          costs: {
+            fixed: 0,
+            distance: 1,
+            time: 0,
+          },
+          shifts: [
+            {
+              start: {
+                time: moment().format(),
+                location: {
+                  lat: item.lat,
+                  lng: item.lng,
+                },
+              },
+            },
+          ],
+          capacity: [1],
+          amount: 1,
+        },
+      ],
+      profiles: [
+        {
+          name: "TB519U",
+          type: "truck",
+        },
+      ],
+    };
+  }
+
+  function data2Task(item?: IData): IJobTask {
+    if (item === undefined) {
+      throw new Error("error id");
+    }
+    return {
+      places: [
+        {
+          location: item.point!,
+          duration: 0,
+        },
+      ],
+      demand: [0],
+    };
+  }
+
+  function getJobs(items: IData[]): IJob[] {
+    var result: IJob[] = [];
+    var exclude: string[] = [];
+    items
+      .filter((f) => f.beforeId !== "")
+      .forEach((m) => {
+        exclude.push(m.id);
+        var ids = m.beforeId.split(",");
+        var job = {
+          id: m.id,
+          tasks: {
+            pickups: [data2Task(m)],
+            deliveries: ids.map((fid) => {
+              exclude.push(fid);
+              return data2Task(items.find((x) => x.id === fid));
+            }),
+          },
+        };
+        result.push(job);
+      });
+
+    items
+      .filter((f) => exclude.findIndex((s) => s === f.id) === -1)
+      .forEach((m) => {
+        result.push({
+          id: m.id,
+          tasks: {
+            deliveries: [data2Task(m)],
+          },
+        });
+      });
+
+    return result;
+  }
+
+  function tourplanning() {
+    setBackground(true);
+    clear(true);
+    const start = data.start!;
+    const end = data.end!;
+    // start.marker?.setIcon(dotIcon("S"));
+    // end.marker?.setIcon(dotIcon("E"));
+
+    var jobitems = table.filter((f) => f.id !== start.id && f.id !== end.id);
+
+    var url =
+      "https://tourplanning.hereapi.com/v3/problems?apiKey=WuSNnukdxFbTveIKlx_HYgkZGbSkFxaS29ivn2edc3U";
+    var request: ITourPlanningRequest = {
+      fleet: getFleet(start.point),
+      plan: {
+        jobs: getJobs(jobitems),
+      },
+    };
+
+    var xhr = new XMLHttpRequest();
+    xhr.addEventListener("load", () => {
+      const response = JSON.parse(xhr.responseText);
+      //var statistic = response.statistic;
+      var stops = response.tours[0].stops;
+
+      var seq = 0;
+      var waypoints = stops.map((s: any) => {
+        var id = s.activities[0].jobId;
+        var type = s.activities[0].type as string;
+        var location = s.location;
+        if (type === "departure") {
+          map?.addObject(
+            new H.map.Marker(location, {
+              data: "start",
+              icon: dotIcon("S"),
+            })
+          );
+        } else {
+          map?.addObject(
+            new H.map.Marker(location, {
+              data: id,
+              icon: dotIcon(seq, type === "delivery" ? colorCircle : "#00a152"),
+            })
+          );
+        }
+        seq++;
+        return {
+          id: s.activities[0].jobId,
+          lat: s.location.lat,
+          lng: s.location.lng,
+          sequence: seq,
+          // estimatedArrival: t.time.arrival,
+          // estimatedDeparture: t.time.arrival,
+        };
+      });
+      waypoints.push({
+        id: "start",
+        lat: start.point?.lat,
+        lng: start.point?.lng,
+      });
+      waypoints.push({
+        id: "end",
+        lat: end.point?.lat,
+        lng: end.point?.lng,
+      });
+
+      routev8(buildVia(waypoints));
+      setBackground(false);
+    });
+
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.send(JSON.stringify(request));
+  }
+
   function findsequence2() {
     setBackground(true);
-    clear();
+    clear(false);
     const start = data.start!;
     const end = data.end!;
     start.marker?.setIcon(dotIcon("S"));
@@ -556,14 +736,24 @@ const TMap = React.forwardRef(() => {
         </Select>
       </Grid>
 
-      <Grid item xs={12}>
+      <Grid item xs={6}>
         <Button
           fullWidth
           variant="contained"
           onClick={findsequence2}
           disabled={data.start === null || data.end === null}
         >
-          route
+          findsequence
+        </Button>
+      </Grid>
+      <Grid item xs={6}>
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={tourplanning}
+          disabled={data.start === null || data.end === null}
+        >
+          tour planning
         </Button>
       </Grid>
     </Grid>

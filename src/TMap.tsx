@@ -463,8 +463,14 @@ const TMap = React.forwardRef(() => {
         m.destination = `destination${i}`;
         m.constraints = "";
         if (m.st) m.constraints += `st:${m.st};`;
-        if (m.acc) m.constraints += `acc:${m.acc};`;
-        if (m.at) m.constraints += `at:${m.at};`;
+        if (m.acc)
+          m.constraints += `acc:${m.acc
+            .replace(/\+/g, "%2B")
+            .replace(/\|/g, "%7C")};`;
+        if (m.at)
+          m.constraints += `at:${m.at
+            .replace(/\+/g, "%2B")
+            .replace(/\|/g, "%7C")};`;
       });
     table
       .filter((f) => f.beforeId !== "")

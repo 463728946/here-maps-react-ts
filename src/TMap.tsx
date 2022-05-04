@@ -9,6 +9,7 @@ import {
   AccordionSummary,
   Autocomplete,
   Backdrop,
+  Box,
   Button,
   CircularProgress,
   Divider,
@@ -29,6 +30,7 @@ import ITourPlanningRequest, {
   IJob,
   IJobTask,
   IVehicleType,
+  ProfileType,
 } from "./ITourPlanningRequest";
 
 export interface IRequest {
@@ -95,10 +97,16 @@ const TMap = React.forwardRef(() => {
     start: null,
     end: null,
   });
-  const [tourConfig, setTourConfig] = useState({
+  const [tourConfig, setTourConfig] = useState<{
+    drivernum: number;
+    maxdistance: number;
+    shiftTime: number;
+    profile: ProfileType;
+  }>({
     drivernum: 1,
     maxdistance: 3000,
     shiftTime: 86400,
+    profile: "truck",
   });
 
   const [distance, setDistance] = useState({
@@ -219,8 +227,8 @@ const TMap = React.forwardRef(() => {
         profile: "default",
         costs: {
           fixed: 0,
-          distance: 1,
-          time: 0,
+          distance: 0,
+          time: 0.00000000001,
         },
         shifts: [
           {
@@ -247,7 +255,7 @@ const TMap = React.forwardRef(() => {
       profiles: [
         {
           name: "default",
-          type: "truck",
+          type: tourConfig.profile,
         },
       ],
     };
@@ -699,6 +707,12 @@ const TMap = React.forwardRef(() => {
           }
         />
       </Grid>
+      <Grid item xs={6}>
+        {XTextField("lenght", duration.lenght / 1000, "km")}
+      </Grid>
+      <Grid item xs={6}>
+        {XTextField("duration", duration.duration / 60, "min")}
+      </Grid>
     </Grid>
   );
 
@@ -802,12 +816,6 @@ const TMap = React.forwardRef(() => {
           <Grid item xs={6}>
             {XTextField("time", distance.time / 60, "min")}
           </Grid>
-          <Grid item xs={6}>
-            {XTextField("lenght", duration.lenght / 1000, "km")}
-          </Grid>
-          <Grid item xs={6}>
-            {XTextField("duration", duration.duration / 60, "min")}
-          </Grid>
         </Grid>
       </AccordionDetails>
     </Accordion>
@@ -820,7 +828,7 @@ const TMap = React.forwardRef(() => {
       </AccordionSummary>
       <AccordionDetails>
         <Grid container spacing={1}>
-          <Grid item xs={4}>
+          <Grid item xs={3}>
             <TextField
               size="small"
               type="number"
@@ -836,7 +844,7 @@ const TMap = React.forwardRef(() => {
               }}
             />{" "}
           </Grid>
-          <Grid item xs={4}>
+          <Grid item xs={3}>
             <TextField
               size="small"
               type="number"
@@ -852,7 +860,7 @@ const TMap = React.forwardRef(() => {
               }}
             />
           </Grid>
-          <Grid item xs={4}>
+          <Grid item xs={3}>
             <TextField
               size="small"
               type="number"
@@ -867,6 +875,35 @@ const TMap = React.forwardRef(() => {
                 });
               }}
             />
+          </Grid>
+          <Grid item xs={3}>
+            <Select
+              size="small"
+              label="mode"
+              fullWidth
+              value={tourConfig.profile}
+              onChange={(e) => {
+                var v = e.target.value;
+                if (
+                  v === "scooter" ||
+                  v === "bicycle" ||
+                  v === "pedestrian" ||
+                  v === "car" ||
+                  v === "truck"
+                ) {
+                  setTourConfig({
+                    ...tourConfig,
+                    profile: v,
+                  });
+                }
+              }}
+            >
+              <MenuItem value={"scooter"}>scooter</MenuItem>
+              <MenuItem value={"bicycle"}>bicycle</MenuItem>
+              <MenuItem value={"pedestrian"}>pedestrian</MenuItem>
+              <MenuItem value={"car"}>car</MenuItem>
+              <MenuItem value={"truck"}>truck</MenuItem>
+            </Select>
           </Grid>
           <Grid item xs={12}>
             <Button
@@ -919,31 +956,33 @@ const TMap = React.forwardRef(() => {
   );
 
   return (
-    <Grid container>
+    <Box>
       <Backdrop
         sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={background}
       >
         <CircularProgress color="inherit" />
       </Backdrop>
-      <Grid item xs={5}>
-        <List>
-          {table.length !== 0 ? null : (
-            <ListItem>
-              <CSVReader onFileLoaded={handleonFileLoaded} />
-              <ListItemText>ver0.6.0</ListItemText>
-            </ListItem>
-          )}
-          <ListItem>{commomContainer}</ListItem>
-          {findAccordion}
-          {tourAccordion}
-          {tabletAccordion}
-        </List>
+      <Grid container>
+        <Grid item xs={5}>
+          <List>
+            {table.length !== 0 ? null : (
+              <ListItem>
+                <CSVReader onFileLoaded={handleonFileLoaded} />
+                <ListItemText>ver0.7.0</ListItemText>
+              </ListItem>
+            )}
+            <ListItem>{commomContainer}</ListItem>
+            {findAccordion}
+            {tourAccordion}
+            {tabletAccordion}
+          </List>
+        </Grid>
+        <Grid item xs={7}>
+          <div id="mapContainer" ref={mapRef} style={{ height: 800 }} />
+        </Grid>
       </Grid>
-      <Grid item xs={7}>
-        <div id="mapContainer" ref={mapRef} style={{ height: 800 }} />
-      </Grid>
-    </Grid>
+    </Box>
   );
 });
 

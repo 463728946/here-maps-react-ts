@@ -227,8 +227,8 @@ const TMap = React.forwardRef(() => {
         profile: "default",
         costs: {
           fixed: 0,
-          distance: 0,
-          time: 0.00000000001,
+          distance: 0.0000001,
+          time: 0,
         },
         shifts: [
           {
@@ -975,7 +975,7 @@ const TMap = React.forwardRef(() => {
             {table.length !== 0 ? null : (
               <ListItem>
                 <CSVReader onFileLoaded={handleonFileLoaded} />
-                <ListItemText>ver0.7.0</ListItemText>
+                <ListItemText>ver0.8.0</ListItemText>
               </ListItem>
             )}
             <ListItem>{commomContainer}</ListItem>
